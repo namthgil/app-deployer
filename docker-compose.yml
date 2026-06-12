@@ -4,7 +4,7 @@ services:
     container_name: app-deployer
     restart: unless-stopped
     ports:
-      - "${HOST_PORT:-80}:80"
+      - "${HOST_IP:-0.0.0.0}:${HOST_PORT:-80}:80"
     volumes:
       # Apps persist on the host at ./apps
       - ./apps:/var/www/apps
