@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>App Deployer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --border: #2a2a30;
+    --border-bright: #3d3d48;
+    --text: #e8e8f0;
+    --muted: #7070880;
+    --accent: #7c6af7;
+    --accent-glow: rgba(124, 106, 247, 0.15);
+    --green: #4ade9a;
+    --red: #f76a6a;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+
+  header span {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #555568;
+    margin-left: auto;
+  }
+
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  /* Drop zone */
+  .deploy-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+  }
+
+  .deploy-card h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #555568;
+    margin-bottom: 20px;
+  }
+
+  .name-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .name-prefix {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #555568;
+    background: #1c1c22;
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  .name-input {
+    flex: 1;
+    background: #1c1c22;
+    border: 1px solid var(--border);
+    border-radius: 0 6px 6px 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .name-input:focus { border-color: var(--accent); }
+  .name-input::placeholder { color: #404055; }
+
+  .drop-zone {
+    border: 1.5px dashed var(--border-bright);
+    border-radius: 8px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+    opacity: 0.6;
+  }
+
+  .drop-zone p {
+    font-size: 14px;
+    color: #8080a0;
+    line-height: 1.5;
+  }
+
+  .drop-zone p strong { color: var(--text); }
+
+  .file-selected {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent-glow);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .file-selected.show { display: flex; }
+  .file-selected .fname { flex: 1; color: var(--accent); }
+  .file-selected .clear-file { cursor: pointer; color: #555568; font-size: 16px; line-height: 1; }
+  .file-selected .clear-file:hover { color: var(--red); }
+
+  .deploy-btn {
+    width: 100%;
+    margin-top: 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  .deploy-btn:hover:not(:disabled) { opacity: 0.88; }
+  .deploy-btn:active:not(:disabled) { transform: scale(0.99); }
+  .deploy-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13px;
+    font-family: var(--mono);
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 100;
+    max-width: 360px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); }
+  .toast.error { border-color: var(--red); }
+  .toast .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .toast.success .dot { background: var(--green); }
+  .toast.error .dot { background: var(--red); }
+
+  /* Apps list */
+  .apps-section h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #555568;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .app-count {
+    background: #1c1c22;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1px 8px;
+    font-size: 11px;
+    color: #8080a0;
+    font-family: var(--mono);
+  }
+
+  .apps-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .app-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.15s;
+  }
+
+  .app-row:hover { border-color: var(--border-bright); }
+
+  .app-indicator {
+    width: 7px; height: 7px;
+    background: var(--green);
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  .app-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .app-url {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #555568;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .app-url:hover { color: var(--accent); }
+
+  .app-updated {
+    font-size: 11px;
+    color: #404055;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+
+  .app-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn-icon {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: #555568;
+    cursor: pointer;
+    padding: 5px 8px;
+    font-size: 13px;
+    transition: all 0.15s;
+    line-height: 1;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .btn-icon:hover { border-color: var(--border-bright); color: var(--text); }
+  .btn-icon.danger:hover { border-color: var(--red); color: var(--red); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: #404055;
+    font-size: 13px;
+    font-family: var(--mono);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .empty-state p:first-child { font-size: 24px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🚀</div>
+  <h1>app-deployer</h1>
+  <span id="hostname-display"></span>
+</header>
+
+<main>
+  <div class="deploy-card">
+    <h2>Deploy App</h2>
+    <div class="name-row">
+      <div class="name-prefix" id="prefix-display">http://localhost/</div>
+      <input class="name-input" id="appName" type="text" placeholder="my-app" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".html">
+      <div class="drop-icon">⬆</div>
+      <p><strong>Drop an HTML file here</strong><br>or click to browse</p>
+    </div>
+    <div class="file-selected" id="fileSelected">
+      <span>📄</span>
+      <span class="fname" id="fileName"></span>
+      <span class="clear-file" id="clearFile">×</span>
+    </div>
+    <button class="deploy-btn" id="deployBtn" disabled>Deploy</button>
+  </div>
+
+  <div class="apps-section">
+    <h2>
+      Running Apps
+      <span class="app-count" id="appCount">0</span>
+    </h2>
+    <div class="apps-grid" id="appsList"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <div class="dot"></div>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+  const origin = window.location.origin;
+  const hostname = window.location.hostname;
+  document.getElementById('hostname-display').textContent = hostname;
+  document.getElementById('prefix-display').textContent = `${window.location.protocol}//${hostname}/`;
+
+  let selectedFile = null;
+
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const fileSelected = document.getElementById('fileSelected');
+  const fileName = document.getElementById('fileName');
+  const clearFile = document.getElementById('clearFile');
+  const appNameInput = document.getElementById('appName');
+  const deployBtn = document.getElementById('deployBtn');
+
+  function setFile(file) {
+    if (!file || !file.name.endsWith('.html')) {
+      showToast('Only .html files are supported', 'error');
+      return;
+    }
+    selectedFile = file;
+    fileName.textContent = file.name;
+    fileSelected.classList.add('show');
+    // Auto-fill name from filename if empty
+    if (!appNameInput.value) {
+      appNameInput.value = file.name.replace(/\.html$/, '').toLowerCase().replace(/\s+/g, '-');
+    }
+    updateBtn();
+  }
+
+  fileInput.addEventListener('change', (e) => setFile(e.target.files[0]));
+
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    setFile(e.dataTransfer.files[0]);
+  });
+
+  clearFile.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    fileSelected.classList.remove('show');
+    updateBtn();
+  });
+
+  appNameInput.addEventListener('input', updateBtn);
+
+  function updateBtn() {
+    deployBtn.disabled = !selectedFile || !appNameInput.value.trim();
+  }
+
+  deployBtn.addEventListener('click', async () => {
+    const name = appNameInput.value.trim().toLowerCase().replace(/\s+/g, '-');
+    if (!name || !selectedFile) return;
+
+    deployBtn.disabled = true;
+    deployBtn.textContent = 'Deploying…';
+
+    const fd = new FormData();
+    fd.append('appName', name);
+    fd.append('file', selectedFile);
+
+    try {
+      const res = await fetch('/api/deploy', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      showToast(`✓ Deployed at /${data.name}`, 'success');
+      appNameInput.value = '';
+      clearFile.click();
+      loadApps();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      deployBtn.textContent = 'Deploy';
+      updateBtn();
+    }
+  });
+
+  // Apps list
+  async function loadApps() {
+    try {
+      const res = await fetch('/api/apps');
+      const apps = await res.json();
+      const list = document.getElementById('appsList');
+      const count = document.getElementById('appCount');
+      count.textContent = apps.length;
+
+      if (apps.length === 0) {
+        list.innerHTML = `<div class="empty-state"><p>📭</p><p>No apps deployed yet</p></div>`;
+        return;
+      }
+
+      list.innerHTML = apps.map(app => `
+        <div class="app-row" id="row-${app.name}">
+          <div class="app-indicator"></div>
+          <div class="app-name">${app.name}</div>
+          <a class="app-url" href="/${app.name}" target="_blank">/${app.name} ↗</a>
+          <div class="app-updated">${timeAgo(app.updated)}</div>
+          <div class="app-actions">
+            <a class="btn-icon" href="/${app.name}" target="_blank" title="Open">↗</a>
+            <button class="btn-icon danger" onclick="deleteApp('${app.name}')" title="Delete">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      console.error('Failed to load apps', e);
+    }
+  }
+
+  async function deleteApp(name) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/apps/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast(`Deleted ${name}`, 'error');
+      loadApps();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function timeAgo(iso) {
+    const diff = Date.now() - new Date(iso);
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    toast.className = `toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  loadApps();
+  setInterval(loadApps, 10000);
+</script>
+</body>
+</html>
